@@ -26,6 +26,14 @@ Luồng chạy:
 
 Checkpoint nằm ở `data/checkpoint.json`, dùng để không lưu lại ảnh đã tải ở lần chạy trước.
 
+Nếu tool báo `Tong candidate: 0`, nó sẽ ghi debug vào:
+
+```text
+data/debug/<timestamp>/
+```
+
+Thư mục này có `page.png`, `report.json`, và `page.html`. Gửi lại `report.json` hoặc ảnh chụp `page.png` để chỉnh selector theo DOM thực tế của Zalo Web.
+
 ## Config Chính
 
 ```json
