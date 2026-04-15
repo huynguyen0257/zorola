@@ -46,10 +46,27 @@ export async function openZaloBrowser(config: AppConfig): Promise<{ context: Bro
 
 export async function scrollChatHistory(page: Page, rounds: number, pauseMs: number): Promise<void> {
   for (let round = 0; round < rounds; round += 1) {
-    await page.mouse.move(720, 500);
-    await page.mouse.wheel(0, -2500);
-    await page.waitForTimeout(pauseMs);
+    await scrollChatHistoryOnce(page, pauseMs);
   }
+}
+
+export async function scrollChatHistoryOnce(page: Page, pauseMs: number): Promise<void> {
+  await page.mouse.move(720, 500);
+  await page.mouse.wheel(0, -2500);
+  await page.waitForTimeout(pauseMs);
+}
+
+export async function collectImagesAcrossScroll(config: AppConfig, page: Page): Promise<CollectedImage[]> {
+  const collected: CollectedImage[] = [];
+
+  collected.push(...(await collectImagesFromCurrentPage(config, page)));
+  for (let round = 0; round < config.zalo.scrollRounds; round += 1) {
+    console.log(`Dang cuon nguoc vong ${round + 1}/${config.zalo.scrollRounds} va quet anh...`);
+    await scrollChatHistoryOnce(page, config.zalo.scrollPauseMs);
+    collected.push(...(await collectImagesFromCurrentPage(config, page)));
+  }
+
+  return collected;
 }
 
 export async function markImageCandidates(page: Page): Promise<BrowserImageCandidate[]> {

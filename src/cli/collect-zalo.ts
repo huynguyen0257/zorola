@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { copyFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { loadConfig } from "../config.js";
-import { collectImagesFromCurrentPage, openZaloBrowser, scrollChatHistory } from "../zalo/collector.js";
+import { collectImagesAcrossScroll, openZaloBrowser } from "../zalo/collector.js";
 
 async function main(): Promise<void> {
   await ensureLocalConfig();
@@ -17,11 +17,8 @@ async function main(): Promise<void> {
     console.log(`Hay login Zalo Web va mo group: ${config.zalo.groupName}`);
     await rl.question("Khi group da mo dung man hinh chat, nhan Enter de bat dau quet anh...");
 
-    console.log(`Dang cuon nguoc ${config.zalo.scrollRounds} vong de load lich su anh...`);
-    await scrollChatHistory(page, config.zalo.scrollRounds, config.zalo.scrollPauseMs);
-
-    console.log("Dang tim va tai anh dang load tren man hinh...");
-    const collected = await collectImagesFromCurrentPage(config, page);
+    console.log("Dang quet anh o man hinh hien tai, sau do cuon nguoc tung vong de quet tiep...");
+    const collected = await collectImagesAcrossScroll(config, page);
     const newImages = collected.filter((item) => !item.skipped);
     const skipped = collected.filter((item) => item.skipped);
 
