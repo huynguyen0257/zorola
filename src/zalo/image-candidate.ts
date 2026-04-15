@@ -4,6 +4,7 @@ export type BrowserImageCandidate = {
   width: number;
   height: number;
   sourceType?: "img" | "background";
+  className?: string;
 };
 
 export function shouldCollectImage(candidate: BrowserImageCandidate): boolean {

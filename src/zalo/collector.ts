@@ -6,6 +6,7 @@ import { saveImageBytes, type SavedImage } from "../storage/image-store.js";
 import { CheckpointStore } from "../storage/checkpoint-store.js";
 import type { AppConfig } from "../config.js";
 import { getBrowserLaunchProblem } from "./browser-env.js";
+import { writeCollectionReport } from "../reporting/collection-report.js";
 import {
   extensionFromContentType,
   shouldCollectImage,
@@ -62,7 +63,8 @@ export async function markImageCandidates(page: Page): Promise<BrowserImageCandi
         src: image.currentSrc || image.src,
         width: Math.round(rect.width || image.naturalWidth),
         height: Math.round(rect.height || image.naturalHeight),
-        sourceType: "img" as const
+        sourceType: "img" as const,
+        className: String(image.className ?? "")
       };
     });
 
@@ -80,7 +82,8 @@ export async function markImageCandidates(page: Page): Promise<BrowserImageCandi
           src,
           width: Math.round(rect.width),
           height: Math.round(rect.height),
-          sourceType: "background" as const
+          sourceType: "background" as const,
+          className: String(element.className ?? "")
         };
       })
       .filter((candidate) => candidate.src);
@@ -124,6 +127,13 @@ export async function collectImagesFromCurrentPage(config: AppConfig, page: Page
       skipped
     });
   }
+
+  const reportPath = await writeCollectionReport({
+    outputRoot: path.join("data", "runs"),
+    candidates,
+    collected
+  });
+  console.log(`Da ghi collection report: ${reportPath}`);
 
   return collected;
 }
