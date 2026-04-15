@@ -10,7 +10,11 @@ export function shouldCollectImage(candidate: BrowserImageCandidate): boolean {
   if (!candidate.src) {
     return false;
   }
-  return candidate.width >= 180 && candidate.height >= 120;
+  const area = candidate.width * candidate.height;
+  const longestSide = Math.max(candidate.width, candidate.height);
+  const shortestSide = Math.min(candidate.width, candidate.height);
+
+  return area >= 20_000 && longestSide >= 180 && shortestSide >= 100;
 }
 
 export function extractUrlFromCssBackground(backgroundImage: string): string | null {

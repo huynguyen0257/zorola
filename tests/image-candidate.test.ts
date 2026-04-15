@@ -13,6 +13,30 @@ test("shouldCollectImage accepts large remote images", () => {
   expect(shouldCollectImage({ index: "0", src: "https://example.com/a.jpg", width: 500, height: 900 })).toBe(true);
 });
 
+test("shouldCollectImage accepts narrow portrait screenshots rendered by Zalo", () => {
+  expect(
+    shouldCollectImage({
+      index: "0",
+      src: "blob:https://chat.zalo.me/example",
+      width: 148,
+      height: 319,
+      sourceType: "img"
+    })
+  ).toBe(true);
+});
+
+test("shouldCollectImage ignores small reaction icons even when one side is nonzero", () => {
+  expect(
+    shouldCollectImage({
+      index: "0",
+      src: "https://res-zalo.zadn.vn/upload/media/iconlike.png",
+      width: 26,
+      height: 30,
+      sourceType: "img"
+    })
+  ).toBe(false);
+});
+
 test("shouldCollectImage ignores embedded data urls", () => {
   expect(shouldCollectImage({ index: "0", src: "data:image/png;base64,abc", width: 500, height: 900 })).toBe(true);
 });
