@@ -1,96 +1,61 @@
-# Zorola Agent Context
+# Zorola Agent Instructions
 
-## Project Summary
+This file is for AI agents working in this repo. Do not use it as user-facing setup documentation and do not duplicate daily action history here.
 
-Zorola is an internal automation tool for processing publisher proof images posted in a Zalo group. The target workflow is:
+## What This Project Is
 
-1. Open Zalo Web.
-2. Collect new proof images from a configured group.
-3. Group related images into publisher submissions.
-4. Extract bank account numbers from the images.
+Zorola is an internal automation tool for processing publisher proof images posted in a Zalo group. The intended end-to-end workflow is:
+
+1. Collect proof images from Zalo Web.
+2. Group related images into publisher submissions.
+3. Extract bank account numbers from the images.
+4. Validate uncertain or conflicting results.
 5. Write every detected image to Google Sheets in Zalo display order as an audit log.
 
-The current codebase is only at the first prototype stage: collecting images from Zalo Web into local storage.
+The product direction, milestones, and acceptance criteria live in the plan docs. The implementation history and next action live in the daily docs.
 
-## Current Status
+## Required Reading Order
 
-As of 2026-04-15:
+When opening this repo in a new session, read in this order:
 
-- GitHub remote: `git@github.com:huynguyen0257/zorola.git`
-- Main branch: `main`
-- Implemented:
-  - Node/TypeScript project scaffold.
-  - Playwright-based Zalo Web collector prototype.
-  - Local image storage using SHA-256 filenames.
-  - JSON checkpoint for downloaded image hashes.
-  - Basic browser environment detection for SSH/Linux without `$DISPLAY`.
-  - Diagnostic output when no Zalo image candidates are found.
-- Not implemented yet:
-  - Reliable Zalo DOM selectors.
-  - Automatic group search/opening.
-  - Cluster/submission grouping.
-  - AI/OCR account extraction.
-  - Google Sheets writer.
-  - SQLite checkpoint/database.
-  - `.command` double-click runner for non-technical users.
+1. [README.md](README.md)
+   - Use this only for user-facing setup, install, and run instructions.
+   - Do not copy setup commands into this file.
 
-## Important Links
+2. Latest project plan under [docs/plans/](docs/plans/)
+   - Use the plan to understand target output, milestone order, and acceptance criteria.
+   - Follow the plan unless the user gives a newer instruction.
+   - If implementation diverges from the plan, update the relevant plan file or add a note in the daily log.
 
-- Project plan: [docs/plans/zorola-project-plan.md](docs/plans/zorola-project-plan.md)
-- Daily action log: [docs/daily/2026-04-15.md](docs/daily/2026-04-15.md)
-- User-facing setup/readme: [README.md](README.md)
+3. Latest daily action file under [docs/daily/](docs/daily/)
+   - Use daily logs to understand what happened before, what was tried, what failed, and what should happen next.
+   - Continue from the latest daily "next step" instead of restarting analysis from scratch.
+   - Add a new daily log or update the current one when meaningful work is done.
 
-## Commands
+## Current Development Environment Constraint
 
-Install dependencies:
+Code changes are usually made from an Ubuntu server workspace over SSH. That server does not provide a normal GUI session for opening Chrome/Zalo Web.
 
-```bash
-npm install
-```
+Because the current collector prototype needs a visible browser for Zalo login and group inspection:
 
-Run tests:
+- Make code changes on the Ubuntu server.
+- Run tests and typecheck on the Ubuntu server.
+- Commit and push changes to GitHub.
+- Tell the user to pull the latest code on macOS.
+- The user should run Zalo Web collection on macOS, where Chrome can open with a GUI.
 
-```bash
-npm test
-```
+Do not assume headed Playwright can run successfully on the Ubuntu SSH server unless a GUI, VNC, or X server has been explicitly configured.
 
-Typecheck:
+## Documentation Responsibilities
 
-```bash
-npx tsc --noEmit
-```
+Keep documentation split by purpose:
 
-Run the current Zalo image collector prototype:
+- `AGENTS.md`: instructions for AI agents only.
+- `README.md`: human setup and run instructions.
+- `docs/plans/`: project plan, milestone order, desired output, acceptance criteria.
+- `docs/daily/`: chronological action history, debugging notes, next-day starting point.
 
-```bash
-npm run zalo:collect
-```
-
-## Local Files And Generated Data
-
-These are intentionally ignored by git:
-
-- `node_modules/`
-- `data/`
-- `config/app.local.json`
-
-Generated runtime data:
-
-- Collected images: `data/images/collected/`
-- Download checkpoint: `data/checkpoint.json`
-- Debug artifacts when no images are found: `data/debug/<timestamp>/`
-
-## Current Debugging Focus
-
-The latest Mac local run opened Zalo Web correctly but found zero image candidates:
-
-```text
-Tong candidate: 0
-Anh moi da luu: 0
-Anh da co trong checkpoint, bo qua: 0
-```
-
-The next step is to pull the latest code on the Mac, rerun `npm run zalo:collect`, and inspect `data/debug/<timestamp>/report.json` plus `page.png` if candidate count is still zero. Do not guess new selectors without looking at these artifacts.
+Do not store daily action history or setup commands in `AGENTS.md`.
 
 ## Engineering Notes
 
