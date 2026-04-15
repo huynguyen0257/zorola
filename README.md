@@ -2,6 +2,15 @@
 
 Prototype lay anh tu Zalo Web ve local.
 
+## Project Context
+
+Agent/project context lives in [AGENTS.md](AGENTS.md).
+
+Planning docs:
+
+- [docs/plans/zorola-project-plan.md](docs/plans/zorola-project-plan.md)
+- [docs/daily/2026-04-15.md](docs/daily/2026-04-15.md)
+
 ## Setup
 
 ```bash
