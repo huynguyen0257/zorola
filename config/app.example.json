@@ -1,0 +1,16 @@
+{
+  "zalo": {
+    "url": "https://chat.zalo.me/",
+    "groupName": "TEN_GROUP_ZALO",
+    "browserChannel": "chrome",
+    "headless": false,
+    "profileDir": "data/chrome-profile",
+    "maxImages": 30,
+    "scrollRounds": 8,
+    "scrollPauseMs": 1200
+  },
+  "storage": {
+    "imageDir": "data/images/collected",
+    "checkpointPath": "data/checkpoint.json"
+  }
+}
