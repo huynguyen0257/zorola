@@ -6,7 +6,7 @@ import { saveImageBytes, type SavedImage } from "../storage/image-store.js";
 import { CheckpointStore } from "../storage/checkpoint-store.js";
 import type { AppConfig } from "../config.js";
 import { getBrowserLaunchProblem } from "./browser-env.js";
-import { writeCollectionReport } from "../reporting/collection-report.js";
+import { writeCollectionReport, type FailedCollection } from "../reporting/collection-report.js";
 import {
   extensionFromContentType,
   shouldCollectImage,
@@ -117,38 +117,48 @@ export async function collectImagesFromCurrentPage(config: AppConfig, page: Page
   const knownHashes = new Set(checkpoint.imageHashes);
   const candidates = (await markImageCandidates(page)).slice(-config.zalo.maxImages);
   const collected: CollectedImage[] = [];
+  const failed: FailedCollection[] = [];
 
   if (candidates.length === 0) {
     await writeDebugArtifacts(page);
   }
 
   for (const candidate of candidates) {
-    const image = await readImageBytes(page, candidate);
-    const saved = await saveImageBytes({
-      bytes: image.bytes,
-      outputDir: config.storage.imageDir,
-      extension: image.extension
-    });
-    const skipped = knownHashes.has(saved.hash);
+    try {
+      const image = await readImageBytes(page, candidate);
+      const saved = await saveImageBytes({
+        bytes: image.bytes,
+        outputDir: config.storage.imageDir,
+        extension: image.extension
+      });
+      const skipped = knownHashes.has(saved.hash);
 
-    if (!skipped) {
-      await checkpointStore.addImageHash(saved.hash);
-      knownHashes.add(saved.hash);
+      if (!skipped) {
+        await checkpointStore.addImageHash(saved.hash);
+        knownHashes.add(saved.hash);
+      }
+
+      collected.push({
+        ...saved,
+        src: candidate.src,
+        width: candidate.width,
+        height: candidate.height,
+        skipped
+      });
+    } catch (error) {
+      failed.push({
+        candidate,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      console.warn(`Khong tai duoc candidate ${candidate.index}: ${failed.at(-1)?.error}`);
     }
-
-    collected.push({
-      ...saved,
-      src: candidate.src,
-      width: candidate.width,
-      height: candidate.height,
-      skipped
-    });
   }
 
   const reportPath = await writeCollectionReport({
     outputRoot: path.join("data", "runs"),
     candidates,
-    collected
+    collected,
+    failed
   });
   console.log(`Da ghi collection report: ${reportPath}`);
 

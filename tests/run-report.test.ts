@@ -36,6 +36,19 @@ test("writeCollectionReport persists candidate and collection details", async ()
         height: 319,
         skipped: false
       }
+    ],
+    failed: [
+      {
+        candidate: {
+          index: "img-2",
+          src: "blob:https://chat.zalo.me/b",
+          width: 110,
+          height: 238,
+          sourceType: "img",
+          className: "zimg-el"
+        },
+        error: "locator disappeared"
+      }
     ]
   });
 
@@ -44,6 +57,8 @@ test("writeCollectionReport persists candidate and collection details", async ()
   expect(report.collectedCount).toBe(1);
   expect(report.newImageCount).toBe(1);
   expect(report.skippedCount).toBe(0);
+  expect(report.failedCount).toBe(1);
   expect(report.candidates[0].className).toBe("zimg-el");
   expect(report.collected[0].hash).toBe("hash-1");
+  expect(report.failed[0].error).toBe("locator disappeared");
 });
