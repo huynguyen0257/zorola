@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import {
   extensionFromContentType,
+  extractMessageTime,
   extractUrlFromCssBackground,
   shouldCollectImage
 } from "../src/zalo/image-candidate.js";
@@ -54,4 +55,12 @@ test("extractUrlFromCssBackground returns the first css background url", () => {
 
 test("extractUrlFromCssBackground returns null when no url exists", () => {
   expect(extractUrlFromCssBackground("none")).toBeNull();
+});
+
+test("extractMessageTime returns the first hh:mm token from nearby text", () => {
+  expect(extractMessageTime("22:09 Hom qua Dai Gui Nhan")).toBe("22:09");
+});
+
+test("extractMessageTime returns null when there is no hh:mm token", () => {
+  expect(extractMessageTime("Khong co gio trong chuoi nay")).toBeNull();
 });

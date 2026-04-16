@@ -24,7 +24,8 @@ test("writeCollectionReport persists candidate and collection details", async ()
         width: 148,
         height: 319,
         sourceType: "img",
-        className: "zimg-el"
+        className: "zimg-el",
+        messageTime: "22:09"
       }
     ],
     collected: [
@@ -45,7 +46,8 @@ test("writeCollectionReport persists candidate and collection details", async ()
           width: 110,
           height: 238,
           sourceType: "img",
-          className: "zimg-el"
+          className: "zimg-el",
+          messageTime: "20:35"
         },
         error: "locator disappeared"
       }
@@ -59,6 +61,8 @@ test("writeCollectionReport persists candidate and collection details", async ()
   expect(report.skippedCount).toBe(0);
   expect(report.failedCount).toBe(1);
   expect(report.candidates[0].className).toBe("zimg-el");
+  expect(report.candidates[0].messageTime).toBe("22:09");
   expect(report.collected[0].hash).toBe("hash-1");
   expect(report.failed[0].error).toBe("locator disappeared");
+  expect(report.failed[0].candidate.messageTime).toBe("20:35");
 });

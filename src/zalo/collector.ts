@@ -18,6 +18,14 @@ export type CollectedImage = SavedImage & {
   width: number;
   height: number;
   skipped: boolean;
+  messageTime?: string | null;
+};
+
+type CapturedCandidatePayload = {
+  candidate: BrowserImageCandidate;
+  bytes?: number[];
+  contentType?: string | null;
+  error?: string;
 };
 
 export async function openZaloBrowser(config: AppConfig): Promise<{ context: BrowserContext; page: Page }> {
@@ -115,21 +123,32 @@ export async function collectImagesFromCurrentPage(config: AppConfig, page: Page
   const checkpointStore = new CheckpointStore(config.storage.checkpointPath);
   const checkpoint = await checkpointStore.load();
   const knownHashes = new Set(checkpoint.imageHashes);
-  const candidates = (await markImageCandidates(page)).slice(-config.zalo.maxImages);
+  const maxImages = Math.min(config.zalo.maxImages, 30);
+  const payloads = await captureImageCandidates(page, maxImages);
+  const candidates = payloads.map((payload) => payload.candidate);
   const collected: CollectedImage[] = [];
-  const failed: FailedCollection[] = [];
+  const failed: FailedCollection[] = payloads
+    .filter((payload) => payload.error)
+    .map((payload) => ({
+      candidate: payload.candidate,
+      error: payload.error ?? "Unknown capture error"
+    }));
 
   if (candidates.length === 0) {
     await writeDebugArtifacts(page);
   }
 
-  for (const candidate of candidates) {
+  for (const payload of payloads) {
+    if (!payload.bytes) {
+      continue;
+    }
+
+    const { candidate } = payload;
     try {
-      const image = await readImageBytes(page, candidate);
       const saved = await saveImageBytes({
-        bytes: image.bytes,
+        bytes: Buffer.from(payload.bytes),
         outputDir: config.storage.imageDir,
-        extension: image.extension
+        extension: extensionFromContentType(payload.contentType ?? null)
       });
       const skipped = knownHashes.has(saved.hash);
 
@@ -143,7 +162,8 @@ export async function collectImagesFromCurrentPage(config: AppConfig, page: Page
         src: candidate.src,
         width: candidate.width,
         height: candidate.height,
-        skipped
+        skipped,
+        messageTime: candidate.messageTime
       });
     } catch (error) {
       failed.push({
@@ -165,48 +185,179 @@ export async function collectImagesFromCurrentPage(config: AppConfig, page: Page
   return collected;
 }
 
-async function readImageBytes(
-  page: Page,
-  candidate: BrowserImageCandidate
-): Promise<{ bytes: Buffer; extension: string }> {
-  const fetched = await tryFetchRenderedImage(page, candidate.src);
-  if (fetched) {
-    return fetched;
-  }
+async function captureImageCandidates(page: Page, maxImages: number): Promise<CapturedCandidatePayload[]> {
+  return page.evaluate(async (max) => {
+    const shouldCollectImageInPage = (candidate: {
+      src: string;
+      width: number;
+      height: number;
+    }): boolean => {
+      if (!candidate.src) {
+        return false;
+      }
+      const area = candidate.width * candidate.height;
+      const longestSide = Math.max(candidate.width, candidate.height);
+      const shortestSide = Math.min(candidate.width, candidate.height);
 
-  const locator = page.locator(`[data-zorola-candidate-index="${candidate.index}"]`).first();
-  return {
-    bytes: await locator.screenshot({ timeout: 5000 }),
-    extension: "png"
-  };
-}
+      return area >= 20_000 && longestSide >= 180 && shortestSide >= 100;
+    };
 
-async function tryFetchRenderedImage(
-  page: Page,
-  src: string
-): Promise<{ bytes: Buffer; extension: string } | null> {
-  try {
-    const result = await page.evaluate(async (imageSrc) => {
-      const response = await fetch(imageSrc);
-      if (!response.ok) {
+    const extractMessageTimeInPage = (text: string): string | null => {
+      const match = text.match(/\b\d{1,2}:\d{2}\b/);
+      return match?.[0] ?? null;
+    };
+
+    const findMessageTimeForElement = (element: Element): string | null => {
+      const selectors = [
+        ".card-send-time__sendTime",
+        ".message-time",
+        ".send-time",
+        ".preview-time"
+      ];
+
+      for (let level = 0, current: Element | null = element; level < 8 && current; level += 1, current = current.parentElement) {
+        for (const selector of selectors) {
+          const timeElement = current.querySelector(selector);
+          const timeText = timeElement?.textContent?.trim();
+          if (timeText) {
+            const parsed = extractMessageTimeInPage(timeText);
+            if (parsed) {
+              return parsed;
+            }
+          }
+        }
+
+        const combinedText = `${current.textContent ?? ""} ${current.getAttribute("aria-label") ?? ""}`.trim();
+        const parsed = extractMessageTimeInPage(combinedText);
+        if (parsed) {
+          return parsed;
+        }
+      }
+
+      return null;
+    };
+
+    const metadata = [
+      ...Array.from(document.images).map((image, index) => {
+        const candidateIndex = `img-${index}`;
+        image.setAttribute("data-zorola-candidate-index", candidateIndex);
+        const rect = image.getBoundingClientRect();
+        return {
+          index: candidateIndex,
+          src: image.currentSrc || image.src,
+          width: Math.round(rect.width || image.naturalWidth),
+          height: Math.round(rect.height || image.naturalHeight),
+          sourceType: "img" as const,
+          className: String(image.className ?? ""),
+          messageTime: findMessageTimeForElement(image),
+          element: image
+        };
+      }),
+      ...Array.from(document.querySelectorAll<HTMLElement>("body *"))
+        .map((element, index) => {
+          const style = window.getComputedStyle(element);
+          const backgroundImage = style.backgroundImage;
+          const match = backgroundImage.match(/url\((?:"([^"]+)"|'([^']+)'|([^)]*))\)/);
+          const src = match?.[1] ?? match?.[2] ?? match?.[3]?.trim() ?? "";
+          const rect = element.getBoundingClientRect();
+          const candidateIndex = `bg-${index}`;
+          element.setAttribute("data-zorola-candidate-index", candidateIndex);
+          return {
+            index: candidateIndex,
+            src,
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+            sourceType: "background" as const,
+            className: String(element.className ?? ""),
+            messageTime: findMessageTimeForElement(element),
+            element
+          };
+        })
+        .filter((candidate) => candidate.src)
+    ]
+      .filter((candidate) =>
+        shouldCollectImageInPage({
+          src: candidate.src,
+          width: candidate.width,
+          height: candidate.height
+        })
+      )
+      .slice(-max);
+
+    const captureByCanvas = async (image: HTMLImageElement): Promise<{ bytes: number[]; contentType: string | null } | null> => {
+      try {
+        if (!image.naturalWidth || !image.naturalHeight) {
+          return null;
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        const context = canvas.getContext("2d");
+        if (!context) {
+          return null;
+        }
+
+        context.drawImage(image, 0, 0);
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+        if (!blob) {
+          return null;
+        }
+
+        return {
+          bytes: Array.from(new Uint8Array(await blob.arrayBuffer())),
+          contentType: blob.type || "image/png"
+        };
+      } catch {
         return null;
       }
-      const contentType = response.headers.get("content-type");
-      const bytes = Array.from(new Uint8Array(await response.arrayBuffer()));
-      return { bytes, contentType };
-    }, src);
-
-    if (!result) {
-      return null;
-    }
-
-    return {
-      bytes: Buffer.from(result.bytes),
-      extension: extensionFromContentType(result.contentType)
     };
-  } catch {
-    return null;
-  }
+
+    const captured = await Promise.all(
+      metadata.map(async (item) => {
+        const candidate = {
+          index: item.index,
+          src: item.src,
+          width: item.width,
+          height: item.height,
+          sourceType: item.sourceType,
+          className: item.className,
+          messageTime: item.messageTime
+        };
+
+        try {
+          const response = await fetch(item.src);
+          if (response.ok) {
+            return {
+              candidate,
+              bytes: Array.from(new Uint8Array(await response.arrayBuffer())),
+              contentType: response.headers.get("content-type")
+            };
+          }
+        } catch {
+          // Ignore and fall back below.
+        }
+
+        if (item.element instanceof HTMLImageElement) {
+          const canvasResult = await captureByCanvas(item.element);
+          if (canvasResult) {
+            return {
+              candidate,
+              bytes: canvasResult.bytes,
+              contentType: canvasResult.contentType
+            };
+          }
+        }
+
+        return {
+          candidate,
+          error: `Unable to capture bytes immediately for ${candidate.index}${candidate.messageTime ? ` at ${candidate.messageTime}` : ""}`
+        };
+      })
+    );
+
+    return captured;
+  }, maxImages);
 }
 
 async function writeDebugArtifacts(page: Page): Promise<void> {

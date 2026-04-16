@@ -5,6 +5,7 @@ export type BrowserImageCandidate = {
   height: number;
   sourceType?: "img" | "background";
   className?: string;
+  messageTime?: string | null;
 };
 
 export function shouldCollectImage(candidate: BrowserImageCandidate): boolean {
@@ -21,6 +22,11 @@ export function shouldCollectImage(candidate: BrowserImageCandidate): boolean {
 export function extractUrlFromCssBackground(backgroundImage: string): string | null {
   const match = backgroundImage.match(/url\((?:"([^"]+)"|'([^']+)'|([^)]*))\)/);
   return match?.[1] ?? match?.[2] ?? match?.[3]?.trim() ?? null;
+}
+
+export function extractMessageTime(text: string): string | null {
+  const match = text.match(/\b\d{1,2}:\d{2}\b/);
+  return match?.[0] ?? null;
 }
 
 export function extensionFromContentType(contentType: string | null): string {
